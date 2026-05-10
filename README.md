@@ -1,82 +1,44 @@
-# 🧠 LLM Gateway — Intelligent AI Engineering Router
+# LLM Gateway
 
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-009688?style=flat&logo=fastapi)](https://fastapi.tiangolo.com)
-[![React](https://img.shields.io/badge/React-18+-61DAFB?style=flat&logo=react)](https://reactjs.org)
-[![Python](https://img.shields.io/badge/Python-3.12+-3776AB?style=flat&logo=python)](https://python.org)
-[![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?style=flat&logo=docker)](https://docker.com)
+An AI router built in FastAPI that sits between your application and LLM providers (OpenAI, Anthropic, Ollama) and makes smart decisions about which model to use for each request. It classifies prompts by complexity, routes them to the right tier, verifies the output quality using a judge model, and auto-escalates if the response isn't good enough.
 
-A **production-grade, full-stack AI gateway** that intelligently routes LLM prompts across providers (OpenAI, Anthropic, Ollama) based on complexity, verifies output quality using an **LLM-as-a-judge** pattern, auto-escalates failed responses, and tracks cost savings in real time.
+The idea came from a simple observation: sending every user prompt to GPT-4o is expensive and often unnecessary. A question like "what is 2+2" shouldn't cost the same as "design a distributed rate limiter". This project handles that automatically.
 
 ---
 
-## 🏗️ Architecture
+## How it works
 
-```
-User Prompt
-    │
-    ▼
-┌─────────────────┐
-│  FastAPI Gateway │  ← Request validation, CORS, health checks
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│   Classifier    │  ← Rule-based (<50ms): Tier 1 / 2 / 3
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐     ┌───────────────────────┐
-│  Router Engine  │────▶│ Config Manager (YAML)  │
-└────────┬────────┘     │ Hot-reload + checksums │
-         │              └───────────────────────┘
-         ▼
-┌─────────────────┐
-│ Provider Adapter│  ← OpenAI / Anthropic / Ollama
-│ + Retry/Backoff │
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│ LLM-as-a-Judge  │  ← Quality score 0-10
-│   Verifier      │
-└────────┬────────┘
-         │ score < threshold?
-         ▼
-┌─────────────────┐
-│   Escalator     │  ← Step up to next tier, re-verify
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│  Cost Engine    │  ← Actual vs GPT-4o baseline savings
-└────────┬────────┘
-         │
-         ▼
-┌─────────────────┐
-│  SQLite (async) │  ← WAL mode, full request telemetry
-└─────────────────┘
-```
+When a request comes in, the router does the following:
+
+1. **Classifies the prompt** using lightweight rule-based heuristics (no LLM call, runs in under 50ms). It looks at word count, code blocks, domain keywords, and sentence structure to assign a complexity tier.
+
+2. **Routes to the appropriate model:**
+   - Tier 1 (simple) — local Ollama model, free
+   - Tier 2 (medium) — GPT-4o-mini or Claude Haiku
+   - Tier 3 (complex) — GPT-4o or Claude Opus
+
+3. **Verifies the response** by sending it to a judge model (GPT-4o-mini) that scores it from 0–10 based on accuracy, completeness, and relevance. This runs async by default so it doesn't block the response.
+
+4. **Escalates if needed** — if the score falls below the tier's threshold, the request gets re-routed to the next tier up and re-evaluated.
+
+5. **Logs everything** — every request, verification result, escalation, token count, latency, and cost goes into a local SQLite database with WAL mode for safe async writes.
+
+The React dashboard gives you a live view of all of this as it happens.
 
 ---
 
-## ✨ Features
+## Stack
 
-| Feature | Detail |
-|---|---|
-| **3-Tier Routing** | Tier 1 (Ollama/local) → Tier 2 (GPT-4o-mini) → Tier 3 (GPT-4o) |
-| **LLM-as-a-Judge** | Secondary model scores responses 0–10 against quality thresholds |
-| **Auto-Escalation** | Failed verifications automatically re-route to a higher-capability tier |
-| **Cost Analytics** | Tracks actual spend vs GPT-4o baseline, calculates % savings per request |
-| **Hot-Reload Config** | YAML routing table reloads without downtime via SHA-256 checksum polling |
-| **Async DB Telemetry** | Full request/verification/escalation logs in aiosqlite with WAL journaling |
-| **React Dashboard** | Real-time execution trace, cost charts, tier routing distribution |
-| **Docker Ready** | Multi-stage Dockerfile — builds React + Python in one image |
+- **Backend:** FastAPI, SQLAlchemy (async), aiosqlite, httpx, Pydantic v2
+- **Frontend:** React 18, Vite, lucide-react
+- **Providers:** OpenAI, Anthropic, Ollama (local)
+- **Config:** YAML-based routing table with hot-reload via SHA-256 checksum polling
 
 ---
 
-## 🚀 Quick Start
+## Getting started
 
-### 1. Clone & Setup
+Clone the repo and install dependencies:
 
 ```bash
 git clone https://github.com/AkshatSemwall/LLM-Gateway.git
@@ -84,28 +46,25 @@ cd LLM-Gateway
 pip install -r requirements.txt
 ```
 
-### 2. Configure Environment
+Copy the environment file and add your keys:
 
 ```bash
 cp .env.example .env
-# Edit .env and add your API keys:
-# OPENAI_API_KEY=sk-...
-# ANTHROPIC_API_KEY=sk-ant-...
 ```
 
-### 3. Run (with built-in Mock Server for demo)
+If you want to run without any API keys, the project includes a mock server that simulates all three providers with realistic latency and token counts:
 
 ```bash
-# Terminal 1 — Mock provider server (no API keys needed)
+# Terminal 1 — starts the mock provider server on port 9000
 python -m uvicorn scripts.mock_server:app --port 9000
 
-# Terminal 2 — Main API + React dashboard
+# Terminal 2 — starts the main API and serves the React dashboard
 python -m uvicorn api.main:app --port 8000
 ```
 
-Open **http://127.0.0.1:8000/dashboard** in your browser.
+Then open `http://localhost:8000/dashboard` in your browser.
 
-### 4. Docker (Production)
+For Docker:
 
 ```bash
 docker-compose up --build
@@ -113,48 +72,49 @@ docker-compose up --build
 
 ---
 
-## 🗂️ Project Structure
+## Project structure
 
 ```
 LLM-Gateway/
 ├── api/
-│   ├── main.py                  # FastAPI app, CORS, lifespan, endpoints
-│   ├── classifier/              # Rule-based prompt complexity classifier
-│   ├── router/                  # Config manager + routing table models
-│   ├── providers/               # OpenAI / Anthropic / Ollama adapters
-│   ├── verifier/                # LLM judge + escalation logic
-│   ├── cost/                    # Cost computation engine
-│   ├── database/                # SQLAlchemy models + async repository
-│   └── models/                  # Request / Response Pydantic schemas
-├── frontend/                    # Vite + React dashboard
+│   ├── main.py                 # App entry, middleware, routes
+│   ├── classifier/             # Prompt complexity classifier
+│   ├── router/                 # Config manager + routing models
+│   ├── providers/              # OpenAI, Anthropic, Ollama adapters
+│   ├── verifier/               # Judge + escalation logic
+│   ├── cost/                   # Cost calculation vs baseline
+│   └── database/               # SQLAlchemy models + async repo
+├── frontend/
 │   └── src/
-│       ├── App.jsx              # Main UI (Console + Analytics tabs)
-│       └── App.css              # Premium dark-mode glassmorphism UI
+│       ├── App.jsx             # Console + Analytics tabs
+│       └── App.css
 ├── scripts/
-│   └── mock_server.py           # Local mock for OpenAI/Anthropic/Ollama
+│   └── mock_server.py          # Local mock for all three providers
 ├── config/
-│   └── routing_config.yaml      # Tier definitions, model costs, thresholds
-├── Dockerfile                   # Multi-stage build (Node + Python)
+│   └── routing_config.yaml     # Tier config, model costs, thresholds
+├── Dockerfile
 ├── docker-compose.yml
-├── requirements.txt
-└── .env.example
+└── requirements.txt
 ```
 
 ---
 
-## 📡 API Reference
+## API
 
-### `POST /v1/completions`
+**POST /v1/completions**
 
 ```json
 {
-  "prompt": "Design a distributed rate limiter",
+  "prompt": "Design a distributed rate limiter using Redis",
   "quality_hint": "high",
   "verification_mode": "sync"
 }
 ```
 
+`quality_hint` accepts `low`, `medium`, or `high` and overrides the classifier if needed. `verification_mode` can be `none`, `async`, or `sync`.
+
 **Response:**
+
 ```json
 {
   "request_id": "req_abc123",
@@ -173,26 +133,13 @@ LLM-Gateway/
 }
 ```
 
-### `GET /health`
-
-```json
-{ "status": "healthy", "version": "1.0.0" }
-```
+**GET /health** — standard health probe for load balancers / Docker / Kubernetes.
 
 ---
 
-## 🛠️ Tech Stack
+## Config
 
-- **Backend:** FastAPI, SQLAlchemy (async), aiosqlite, httpx, Pydantic v2, python-dotenv
-- **Frontend:** React 18, Vite, lucide-react
-- **Providers:** OpenAI Chat Completions, Anthropic Messages API, Ollama local inference
-- **DevOps:** Docker multi-stage build, docker-compose, uvicorn
-
----
-
-## 🔧 Configuration
-
-Edit `config/routing_config.yaml` to change models, costs, and quality thresholds. The config manager auto-reloads on file change — no restart needed.
+Edit `config/routing_config.yaml` to change which models map to which tier, update costs, or adjust quality thresholds. The config manager polls for changes every 60 seconds using a SHA-256 checksum, so you don't need to restart the server.
 
 ```yaml
 routing:
@@ -202,16 +149,6 @@ routing:
       model_name: llama3.2:1b
       cost_per_1k_input: 0.0
       cost_per_1k_output: 0.0
-  tier2:
-    primary:
-      provider: openai
-      model_name: gpt-4o-mini
-      ...
-  tier3:
-    primary:
-      provider: openai
-      model_name: gpt-4o
-      ...
 
 quality_thresholds:
   tier1: 6.5
@@ -221,6 +158,14 @@ quality_thresholds:
 
 ---
 
-## 📄 License
+## Notes
+
+The savings calculation compares actual cost against what the same request would have cost using GPT-4o across the board. For Tier 1 requests (routed to Ollama), savings are 100% since local inference has no API cost.
+
+The mock server in `scripts/mock_server.py` simulates a real escalation scenario — the first judge call intentionally fails with a low score to demonstrate the escalation flow in the dashboard.
+
+---
+
+## License
 
 MIT
