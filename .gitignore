@@ -45,3 +45,4 @@ showcase/
 !assets/screenshots/
 *.webp
 !assets/screenshots/*.webp
+!screen-recording/*.webp
