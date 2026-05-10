@@ -1,0 +1,48 @@
+routing:
+  tier1:
+    primary:
+      provider: ollama
+      model_name: llama3.2:1b
+      cost_per_1k_input: 0.0
+      cost_per_1k_output: 0.0
+    fallback:
+      - provider: openai
+        model_name: gpt-4o-mini
+        cost_per_1k_input: 0.00015
+        cost_per_1k_output: 0.00060
+
+  tier2:
+    primary:
+      provider: openai
+      model_name: gpt-4o-mini
+      cost_per_1k_input: 0.00015
+      cost_per_1k_output: 0.00060
+    fallback:
+      - provider: anthropic
+        model_name: claude-haiku-3-5
+        cost_per_1k_input: 0.00025
+        cost_per_1k_output: 0.00125
+
+  tier3:
+    primary:
+      provider: openai
+      model_name: gpt-4o
+      cost_per_1k_input: 0.0025
+      cost_per_1k_output: 0.01
+    fallback:
+      - provider: anthropic
+        model_name: claude-opus-4-5
+        cost_per_1k_input: 0.015
+        cost_per_1k_output: 0.075
+
+quality_thresholds:
+  tier1: 6.5
+  tier2: 7.0
+  tier3: 8.0
+
+judge_model:
+  provider: openai
+  model_name: gpt-4o-mini
+  temperature: 0.0
+  cost_per_1k_input: 0.00015
+  cost_per_1k_output: 0.00060

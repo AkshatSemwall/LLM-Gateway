@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  router:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - DATABASE_URL=sqlite+aiosqlite:///data/autopilot.db
+    volumes:
+      - ./data:/app/data
+      - ./config:/app/config
+    restart: unless-stopped
