@@ -42,4 +42,6 @@ frontend/.cache/
 
 # Misc
 showcase/
+!assets/screenshots/
 *.webp
+!assets/screenshots/*.webp

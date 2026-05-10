@@ -6,6 +6,26 @@ The idea came from a simple observation: sending every user prompt to GPT-4o is 
 
 ---
 
+## Screenshots
+
+**Dashboard — empty state with Quick Demo shortcuts in the sidebar**
+
+![Dashboard overview](assets/screenshots/01_dashboard.png)
+
+**Tier 1 and Tier 2 routing — both live traces side by side, showing gpt-4o-mini at 94% savings**
+
+![Tier 2 routing trace](assets/screenshots/02_tier2_routing.png)
+
+**Tier 3 routing — complex prompt sent to gpt-4o, sync verified (Verified badge visible), all three tiers in the trace panel**
+
+![Tier 3 verified](assets/screenshots/03_tier3_verified.png)
+
+**Analytics tab — actual spend vs baseline, 32% savings rate, routing distribution across T1/T2/T3, avg latency**
+
+![Analytics](assets/screenshots/04_analytics.png)
+
+---
+
 ## How it works
 
 When a request comes in, the router does the following:
